@@ -7,11 +7,6 @@ import warnings
 warnings.filterwarnings('ignore')
 pd.set_option('display.max_columns', 500)
 
-# Read the data
-data = pd.read_csv('/Users/vanefu/Desktop/vix project/UnderlyingOptionsEODCalcs_2018-02-21.csv')
-data['quote_date'] = data['quote_date'].apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
-data['expiration'] = data['expiration'].apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
-
 ## Functions
 def get_option_dates(quote_date, unique_dates):
     """
@@ -248,6 +243,12 @@ def get_VIX(T1, T2, volatility1, volatility2):
     VIX = 100 * np.sqrt(
         (T1 * volatility1 * ((N2 - N30) / (N2 - N1)) + T2 * volatility2 * ((N30 - N1) / (N2 - N1))) * (N365 / N30))
     return VIX
+
+
+## Read the data
+data = pd.read_csv('/Users/vanefu/Desktop/vix project/UnderlyingOptionsEODCalcs_2018-02-21.csv')
+data['quote_date'] = data['quote_date'].apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
+data['expiration'] = data['expiration'].apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
 
 ## Calculations
 
