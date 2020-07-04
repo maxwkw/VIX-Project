@@ -298,3 +298,27 @@ volatility2 = get_volatility(next_term_all, R2, T2, F2, K2)
 VIX = get_VIX(T1, T2, volatility1, volatility2)
 print(VIX)
 
+## Select the subset
+# near term put closest to k1
+near_subset_p0 = near_term_p.loc[near_term_p['strike']==K1].sort_values(by=['strike'],ascending=False).iloc[0:5]
+near_subset_p1 = near_term_p.loc[near_term_p['strike']<=K1].sort_values(by=['strike'],ascending=False).iloc[0:5]
+near_subset_p2 = near_term_p.loc[near_term_p['strike']>=K1].sort_values(by=['strike'],ascending=False).iloc[0:5]
+near_subset_p = pd.concat([near_subset_p0,near_subset_p1,near_subset_p2])
+
+# near term call closest to k1
+near_subset_c0 = near_term_c.loc[near_term_c['strike']==K1].sort_values(by=['strike']).iloc[0:5]
+near_subset_c1 = near_term_c.loc[near_term_c['strike']<=K1].sort_values(by=['strike']).iloc[0:5]
+near_subset_c2 = near_term_c.loc[near_term_c['strike']>=K1].sort_values(by=['strike']).iloc[0:5]
+near_subset_c = pd.concat([near_subset_c0,near_subset_c1,near_subset_c2])
+
+# next term put closet to k2
+next_subset_p0 = next_term_p.loc[next_term_p['strike']==K2].sort_values(by=['strike'],ascending=False).iloc[0:5]
+next_subset_p1 = next_term_p.loc[next_term_p['strike']<=K2].sort_values(by=['strike'],ascending=False).iloc[0:5]
+next_subset_p2 = next_term_p.loc[next_term_p['strike']>=K2].sort_values(by=['strike'],ascending=False).iloc[0:5]
+next_subset_p = pd.concat([next_subset_p0,next_subset_p1,next_subset_p2])
+
+# next term call closet to k2
+next_subset_c0 = next_term_c.loc[next_term_c['strike']==K2].sort_values(by=['strike']).iloc[0:5]
+next_subset_c1 = next_term_c.loc[next_term_c['strike']<=K2].sort_values(by=['strike']).iloc[0:5]
+next_subset_c2 = next_term_c.loc[next_term_c['strike']>=K2].sort_values(by=['strike']).iloc[0:5]
+next_subset_c = pd.concat([next_subset_c0,next_subset_c1,next_subset_c2])
