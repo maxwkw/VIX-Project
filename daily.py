@@ -322,3 +322,14 @@ next_subset_c0 = next_term_c.loc[next_term_c['strike']==K2].sort_values(by=['str
 next_subset_c1 = next_term_c.loc[next_term_c['strike']<=K2].sort_values(by=['strike']).iloc[0:5]
 next_subset_c2 = next_term_c.loc[next_term_c['strike']>=K2].sort_values(by=['strike']).iloc[0:5]
 next_subset_c = pd.concat([next_subset_c0,next_subset_c1,next_subset_c2])
+
+near_subset = all_option_selection(near_subset_p,near_subset_c,near_term_atm)
+next_subset = all_option_selection(next_subset_p,next_subset_c,next_term_atm)
+
+# Calculate the volatility with all the subset options
+volatility1 = get_volatility(near_subset, R1, T1, F1, K1)
+volatility2 = get_volatility(next_subset, R2, T2, F2, K2)
+
+# Calculate the VIX index value
+VIX = get_VIX(T1, T2, volatility1, volatility2)
+print(VIX)
