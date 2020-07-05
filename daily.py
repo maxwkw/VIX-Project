@@ -15,6 +15,10 @@ def get_option_dates(quote_date, unique_dates):
     Keyword arguments:
     quote_date -- the date of VIX to be replicated
     unique_dates -- a set of all unique expiration dates from the data
+
+    Example:
+    get_option_dates(datetime.datetime(2018, 2, 21), set(data['expiration'])) retrun the two expiration dates with
+    2018/2/21 as the options quote date
     """
     # A dictionary which maps the weekday(0:Monday, 1:Tuesday, ..., 6:Sunday) to the two numbers of remaining days
     # that would be used to compute the near_term and next_term expiration dates
@@ -38,6 +42,9 @@ def get_strike_price(options_df):
 
     Keyword arguments:
     options_df -- the dataframe with either all the near_term or all the next_term options
+
+    Example:
+    get_strike_price(near_term) returns the strike price for the near-term options and a pivoted dataframe
     """
     # Create a pivoted dataframe with strike price as the index, call and put option price as columns
     pivoted_df = options_df[['strike', 'option_type', 'Average Price']].pivot(index='strike', columns='option_type',
@@ -61,6 +68,10 @@ def get_T(curr_hour, curr_min, curr_date, expire_date, option_root):
     expire_date -- the expiration date of the options(the expiration date of near_term or next_term) in datetime format
     option_root -- the option root string(Standard or Weekly) from the 'root' column of the data, 'SPX' represents
                     'standard' options while 'SPXW' represents 'weekly' options
+
+    Example:
+    get_T(16, 15, datetime.datetime(2018, 2, 21), expire_dates[0], near_term.root.iloc[0]) returns the T for near-term
+    options given 2018/2/21 16:15 as the current date and time
     """
     M_current_day = 24 * 60 - (curr_hour * 60 + curr_min)
     M_settlement_day = 60 * 9.5 if option_root == 'SPX' else 60 * 16
@@ -77,6 +88,9 @@ def get_F(strike_price, R, T, pivoted_df):
     R -- the risk-free interest rate for the corresponding term
     T -- the time to expiration obtained from get_T() for the corresponding term
     pivoted_df -- the pivoted dataframe of either near_term or next_term options obtained from get_strike_price()
+
+    Example:
+    get_F(near_term_strike, R1, T1, pivoted_near_term) returns the F value for near term options
     """
     F = strike_price + math.exp(R * T) * (pivoted_df.loc[strike_price]['c'] - pivoted_df.loc[strike_price]['p'])
     return F
@@ -89,6 +103,9 @@ def get_K0(options_df, F):
     Keyword arguments:
     options_df -- the dataframe with either all the near_term or all the next_term options
     F -- the forward index price obtained from get_F() for the corresponding term
+    
+	Example:
+    get_K0(near_term, F1) returns the K0 value for near-term options
     """
     K0 = [i for i in options_df['strike'].unique() if i <= F][-1]
     return K0
@@ -101,6 +118,9 @@ def put_option_selection(options_df, K0):
     Keyword arguments:
     options_df -- the dataframe with either all the near_term or all the next_term options
     K0 -- the K0 obtained from get_K0() for the corresponding term
+
+    Example:
+    put_option_selection(near_term, K1) returns a dataframe with all the selected near-term put options
     """
     put_options_df = options_df[(options_df.option_type == 'p') & (options_df.strike < K0)]
     include_list = []
@@ -129,6 +149,9 @@ def call_option_selection(options_df, K0):
     Keyword arguments:
     options_df -- the dataframe with either all the near_term or all the next_term options
     K0 -- the K0 obtained from get_K0() for the corresponding term
+
+    Example:
+    call_option_selection(near_term, K1) returns a dataframe with all the selected near-term call options
     """
     call_options_df = options_df[(options_df.option_type == 'c') & (options_df.strike > K0)]
     include_list = []
@@ -157,6 +180,9 @@ def atm_option_selection(options_df, K0):
     Keyword arguments:
     options_df -- the dataframe with either all the near_term or all the next_term options
     K0 -- the K0 obtained from get_K0() for the corresponding term
+
+    Example:
+    atm_option_selection(near_term, K1) returns a dataframe with all the selected near-term atm optionss
     """
     atm_options_df = options_df[options_df.strike == K0]
     # Calculate the price as the average price of the two options and only keep one record for future calculations
@@ -173,6 +199,9 @@ def all_option_selection(put_options_df, call_options_df, atm_options_df):
     put_options_df -- the dataframe with all the selected otm put options obtained from put_option_selection()
     call_options_df -- the dataframe with all the selected otm call options obtained from call_option_selection()
     atm_options_df -- the dataframe with the selected atm option obtained from atm_option_selection()
+    
+    Example:
+    all_option_selection(near_term_p, near_term_c, near_term_atm) returns a dataframe with all the selected near-term options
     """
     all_options_df = pd.concat(
         [put_options_df[put_options_df.Include == 'Yes'], call_options_df[call_options_df.Include == 'Yes'],
@@ -192,6 +221,10 @@ def get_volatility(all_options_df, R, T, F, K0):
     T -- the time to expiration obtained from get_T() for the corresponding term
     F -- the forward index price obtained from get_F() for the corresponding term
     K0 -- the K0 obtained from get_K0() for the corresponding term
+
+    Example:
+    get_volatility(near_term_all, R1, T1, F1, K1) returns the near-term volatility given all the selected near-term
+    options, R, as well as the calculated T, F, and K0
     """
     price_list = list(all_options_df['Average Price'])
     strike_list = list(all_options_df['strike'])
@@ -229,6 +262,10 @@ def get_VIX(T1, T2, volatility1, volatility2):
     T2 -- the time to expiration obtained from get_T() for next_term
     volatility1 -- the volatility obtained from get_volatility() for near_term
     volatility2 -- the volatility obtained from get_volatility() for next_term
+
+    Example:
+    get_VIX(T1, T2, volatility1, volatility2) returns the VIX value given the near-term and next-term T, as well as
+    near-term and next-term volatility
     """
     # number of minutes to settlement of the near-term options
     N1 = T1 * 525600
@@ -269,6 +306,7 @@ T1 = get_T(16, 15, datetime.datetime(2018, 2, 21), expire_dates[0], near_term.ro
 T2 = get_T(16, 15, datetime.datetime(2018, 2, 21), expire_dates[1], next_term.root.iloc[0])
 
 # Step 5: Calculate F, forward index price, for both near_term and next_term options
+# The R values are the 1-Month Daily Treasury Yield Curve Rates acquired from treasury.gov
 R1 = 0.0139
 R2 = 0.0139
 F1 = get_F(near_term_strike, R1, T1, pivoted_near_term)
@@ -333,3 +371,24 @@ volatility2 = get_volatility(next_subset, R2, T2, F2, K2)
 # Calculate the VIX index value
 VIX = get_VIX(T1, T2, volatility1, volatility2)
 print(VIX)
+
+## Max's version of subset selection
+
+# Set the number of nearest options that are going to be selected
+option_num = 5
+
+# Select the five nearest near-term put and call options
+near_term_nearest_p = near_term_p.iloc[-option_num:]
+near_term_nearest_c = near_term_c.iloc[:option_num]
+near_term_nearest_all = all_option_selection(near_term_nearest_p, near_term_nearest_c, near_term_atm)
+
+# Select the five nearest next-term put and call options
+next_term_nearest_p = next_term_p.iloc[-option_num:]
+next_term_nearest_c = next_term_c.iloc[:option_num]
+next_term_nearest_all = all_option_selection(next_term_nearest_p, next_term_nearest_c, next_term_atm)
+
+# Calculate the subset volatility and VIX
+subset_volatility1 = get_volatility(near_term_nearest_all, R1, T1, F1, K1)
+subset_volatility2 = get_volatility(next_term_nearest_all, R2, T2, F2, K2)
+subset_VIX = get_VIX(T1, T2, subset_volatility1, subset_volatility2)
+print(subset_VIX)
