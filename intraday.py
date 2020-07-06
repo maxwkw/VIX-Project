@@ -4,6 +4,8 @@ import math
 import datetime
 import warnings
 from sklearn.metrics import mean_squared_error
+from matplotlib.dates import DateFormatter, MinuteLocator
+
 warnings.filterwarnings('ignore')
 pd.set_option('display.max_columns', 500)
 
@@ -343,8 +345,7 @@ print('MSE:', mean_squared_error(vix_value_minute_data['INDEX_VALUE'], vix_value
 
 
 ## Plot the error
-from matplotlib.dates import DateFormatter, MinuteLocator
-
+vix_value_minute_data['error'] = vix_value_minute_data['INDEX_VALUE'] - vix_value_minute_data['Replicated Value']
 vix_value_minute_data = vix_value_minute_data.reset_index()
 vix_value_minute_data.loc[vix_value_minute_data['error']>0.4]
 
@@ -366,3 +367,15 @@ ax.annotate('13:47:06',
             xy=(x_time[316], vix_value_minute_data['error'][316]),xytext=(0.83, 0.2), textcoords='axes fraction',
            arrowprops=dict(facecolor='black', shrink=0.01),fontsize=15)
 plt.show()
+
+# std of error
+vix_value_minute_data['error'].std()
+# rate of change & deviation
+change=np.zeros(len(vix_value_minute_data)-1)
+for i in range(len(vix_value_minute_data)-1):
+    change[i] = vix_value_minute_data['INDEX_VALUE'][i+1]-vix_value_minute_data['INDEX_VALUE'][i]
+change.std()
+
+# daily replication value is 19.98324149355698
+# standard deviation of rate of change is 0.07739324021525758
+# daily replication value + std(rate of change) = 20.06063473377224 < 20.02
