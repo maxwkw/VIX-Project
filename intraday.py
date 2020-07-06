@@ -340,3 +340,29 @@ vix_value_minute_data = vix_value_data.iloc[1440::4]
 vix_value_minute_data = vix_value_minute_data.append(vix_value_data.iloc[-1])
 vix_value_minute_data['Replicated Value'] = VIX_list
 print('MSE:', mean_squared_error(vix_value_minute_data['INDEX_VALUE'], vix_value_minute_data['Replicated Value']))
+
+
+## Plot the error
+from matplotlib.dates import DateFormatter, MinuteLocator
+
+vix_value_minute_data = vix_value_minute_data.reset_index()
+vix_value_minute_data.loc[vix_value_minute_data['error']>0.4]
+
+x_time = [datetime.datetime.strptime(d,"%H:%M:%S") for d in vix_value_minute_data["TIME_STAMP"]]
+formatter = DateFormatter("%H:%M")
+fig, ax = plt.subplots(figsize=(15,5))
+# ax.plot(np.arange(450))
+ax.plot(x_time,vix_value_minute_data['error'])
+ax.set_xticks(x_time)
+plt.xticks(rotation = 50)
+ax.xaxis.set_major_formatter(formatter)
+ax.xaxis.set_major_locator(MinuteLocator(interval=15))
+ax.plot(x_time[270], vix_value_minute_data['error'][270], marker='o', markersize=13)
+ax.plot(x_time[316], vix_value_minute_data['error'][316], marker='o', markersize=13)
+ax.annotate('13:01:06',
+            xy=(x_time[270], vix_value_minute_data['error'][270]),xytext=(0.75, 0.8), textcoords='axes fraction',
+           arrowprops=dict(facecolor='black', shrink=0.01),fontsize=15)
+ax.annotate('13:47:06',
+            xy=(x_time[316], vix_value_minute_data['error'][316]),xytext=(0.83, 0.2), textcoords='axes fraction',
+           arrowprops=dict(facecolor='black', shrink=0.01),fontsize=15)
+plt.show()
