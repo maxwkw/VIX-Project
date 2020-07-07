@@ -378,7 +378,7 @@ change.std()
 
 # daily replication value is 19.98324149355698
 # standard deviation of rate of change is 0.07739324021525758
-# daily replication value + std(rate of change) = 20.06063473377224 < 20.02
+# daily replication value + std(rate of change) = 20.06063473377224 > 20.02
 
 
 
