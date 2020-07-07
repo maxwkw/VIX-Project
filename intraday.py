@@ -379,3 +379,197 @@ change.std()
 # daily replication value is 19.98324149355698
 # standard deviation of rate of change is 0.07739324021525758
 # daily replication value + std(rate of change) = 20.06063473377224 < 20.02
+
+
+
+## Subset Selection
+
+## Approach 1
+
+# Set the number of nearest options that are going to be selected
+option_num = 50
+
+# Step 2: Split the dataset according to the quotetime
+subset_VIX_list = []
+
+data_first_expire = data_two_dates[data_two_dates.expiration == expire_dates[0]]
+data_second_expire = data_two_dates[data_two_dates.expiration == expire_dates[1]]
+
+for quote_time in quote_time_list:
+    
+    # Step 3: Split the dataset into a near_term dataset and a next_term dataset
+    near_term = data_first_expire[data_first_expire.quote_datetime == quote_time]
+    next_term = data_second_expire[data_second_expire.quote_datetime == quote_time]
+    
+    # Step 4: Calculate the strike prices used in the calculation of F for both near_term and next_term options
+    near_term_strike, pivoted_near_term = get_strike_price(near_term)
+    next_term_strike, pivoted_next_term = get_strike_price(next_term)
+    
+    # Step 5: Calculate T, time to expiration, for both near_term and next_term options
+    quote_time_dt = pd.to_datetime(quote_time)
+    T1 = get_T(quote_time_dt.hour, quote_time_dt.minute, datetime.datetime(quote_time_dt.year, 
+               quote_time_dt.month, quote_time_dt.day), expire_dates[0], near_term.root.iloc[0])
+    T2 = get_T(quote_time_dt.hour, quote_time_dt.minute, datetime.datetime(quote_time_dt.year, 
+                quote_time_dt.month, quote_time_dt.day), expire_dates[1], next_term.root.iloc[0])
+    
+    # Step 6: Calculate F, forward index price, for both near_term and next_term options
+    # The R values are the 1-Month Daily Treasury Yield Curve Rates acquired from treasury.gov
+    R1 = 0.0139
+    R2 = 0.0139
+    F1 = get_F(near_term_strike, R1, T1, pivoted_near_term)
+    F2 = get_F(next_term_strike, R2, T2, pivoted_next_term)
+    
+    # Step 7: Calculate K0, the strike price equal to or immediately below F, for both near_term and next_term options
+    K1 = get_K0(near_term, F1)
+    K2 = get_K0(next_term, F2)
+
+    # Step 8: Select the 50 nearest near-term put and call options at the beginning of the day and use them for the whole day
+    near_term_nearest_p = near_term_p.iloc[-option_num:]
+    near_term_nearest_c = near_term_c.iloc[:option_num]
+    near_term_nearest_all = all_option_selection(near_term_nearest_p, near_term_nearest_c, near_term_atm)
+
+    # Step 9: Select the 50 nearest next-term put and call options at the beginning of the day and use them for the whole day
+    next_term_nearest_p = next_term_p.iloc[-option_num:]
+    next_term_nearest_c = next_term_c.iloc[:option_num]
+    next_term_nearest_all = all_option_selection(next_term_nearest_p, next_term_nearest_c, next_term_atm)
+
+    # Step 10: Calculate the subset volatility
+    subset_volatility1 = get_volatility(near_term_nearest_all, R1, T1, F1, K1)
+    subset_volatility2 = get_volatility(next_term_nearest_all, R2, T2, F2, K2)
+    
+    # Step 11: Caluculate the VIX index value
+    subset_VIX = get_VIX(T1, T2, subset_volatility1, subset_volatility2)
+    subset_VIX_list.append(subset_VIX)
+
+ # Step 12: Read the VIX value data and compare
+vix_value_data = pd.read_csv('^VIX_SPOT_20180221.csv')
+vix_value_minute_data = vix_value_data.iloc[1440::4]
+vix_value_minute_data = vix_value_minute_data.append(vix_value_data.iloc[-1])
+vix_value_minute_data['Replicated Value'] = subset_VIX_list
+vix_value_minute_data['Abs Difference'] = abs(vix_value_minute_data['INDEX_VALUE']-vix_value_minute_data['Replicated Value'])
+print('MSE:', mean_squared_error(vix_value_minute_data['INDEX_VALUE'], vix_value_minute_data['Replicated Value']))
+
+# Plotting the error
+from matplotlib.dates import DateFormatter, MinuteLocator
+vix_value_minute_data['error'] = vix_value_minute_data['INDEX_VALUE'] - vix_value_minute_data['Replicated Value']
+vix_value_minute_data = vix_value_minute_data.reset_index()
+vix_value_minute_data.loc[vix_value_minute_data['error']>0.4]
+x_time = [datetime.datetime.strptime(d,"%H:%M:%S") for d in vix_value_minute_data["TIME_STAMP"]]
+formatter = DateFormatter("%H:%M")
+fig, ax = plt.subplots(figsize=(15,5))
+ax.plot(x_time,vix_value_minute_data['error'])
+ax.set_xticks(x_time)
+plt.xticks(rotation = 50)
+ax.xaxis.set_major_formatter(formatter)
+ax.xaxis.set_major_locator(MinuteLocator(interval=15))
+plt.ylabel('error')
+plt.show()
+
+## Approach 2
+# Set the number of nearest options that are going to be selected
+option_num = 50
+
+# Step 2: Split the dataset according to the quotetime
+subset_VIX_list = []
+near_term_list = []
+next_term_list = []
+
+data_first_expire = data_two_dates[data_two_dates.expiration == expire_dates[0]]
+data_second_expire = data_two_dates[data_two_dates.expiration == expire_dates[1]]
+
+for q in range(len(quote_time_list)):
+    
+    quote_time = quote_time_list[q]
+    
+    # Step 3: Split the dataset into a near_term dataset and a next_term dataset
+    near_term = data_first_expire[data_first_expire.quote_datetime == quote_time]
+    next_term = data_second_expire[data_second_expire.quote_datetime == quote_time]
+    near_term_dict = near_term.to_dict('index')
+    next_term_dict = next_term.to_dict('index')
+
+    # Step 4: Calculate the strike prices used in the calculation of F for both near_term and next_term options
+    near_term_strike, pivoted_near_term = get_strike_price(near_term)
+    next_term_strike, pivoted_next_term = get_strike_price(next_term)
+
+    # Step 5: Calculate T, time to expiration, for both near_term and next_term options
+    quote_time_dt = pd.to_datetime(quote_time)
+    T1 = get_T(quote_time_dt.hour, quote_time_dt.minute, datetime.datetime(quote_time_dt.year, 
+               quote_time_dt.month, quote_time_dt.day), expire_dates[0], near_term.root.iloc[0])
+    T2 = get_T(quote_time_dt.hour, quote_time_dt.minute, datetime.datetime(quote_time_dt.year, 
+                quote_time_dt.month, quote_time_dt.day), expire_dates[1], next_term.root.iloc[0])
+
+    # Step 6: Calculate F, forward index price, for both near_term and next_term options
+    # The R values are the 1-Month Daily Treasury Yield Curve Rates acquired from treasury.gov
+    R1 = 0.0139
+    R2 = 0.0139
+    F1 = get_F(near_term_strike, R1, T1, pivoted_near_term)
+    F2 = get_F(next_term_strike, R2, T2, pivoted_next_term)
+
+    # Step 7: Calculate K0, the strike price equal to or immediately below F, for both near_term and next_term options
+    K1 = get_K0(near_term, F1)
+    K2 = get_K0(next_term, F2)
+
+    # Step 8: Select the 50 nearest near-term put and call options at the beginning of the day and use them for the whole day
+    if q == 0:
+        near_term_nearest_p = near_term_p.iloc[-option_num:]
+        near_term_nearest_c = near_term_c.iloc[:option_num]
+        near_term_nearest_all = all_option_selection(near_term_nearest_p, near_term_nearest_c, near_term_atm)
+        for index, row in near_term_nearest_all.iterrows():
+            near_term_list.append((row['strike'], row['option_type']))
+    else:
+        nearest_all = []
+        for option in near_term_list:
+            for key, value in near_term_dict.items():
+                if value['strike'] == option[0] and value['option_type'] == option[1]:
+                    nearest_all.append(value)
+        near_term_nearest_all = pd.DataFrame(nearest_all)
+        near_term_nearest_all = near_term_nearest_all[['strike', 'option_type', 'Average Price']]
+        near_term_nearest_all = near_term_nearest_all.sort_values(by=['strike'])
+        
+    # Step 9: Select the 50 nearest next-term put and call options at the beginning of the day and use them for the whole day
+    if q == 0:
+        next_term_nearest_p = next_term_p.iloc[-option_num:]
+        next_term_nearest_c = next_term_c.iloc[:option_num]
+        next_term_nearest_all = all_option_selection(next_term_nearest_p, next_term_nearest_c, next_term_atm)
+        for index, row in next_term_nearest_all.iterrows():
+            next_term_list.append((row['strike'], row['option_type']))
+    else:
+        nearest_all = []
+        for option in next_term_list:
+            for key, value in next_term_dict.items():
+                if value['strike'] == option[0] and value['option_type'] == option[1]:
+                    nearest_all.append(value)
+        next_term_nearest_all = pd.DataFrame(nearest_all)
+        next_term_nearest_all = next_term_nearest_all[['strike', 'option_type', 'Average Price']]
+        next_term_nearest_all = next_term_nearest_all.sort_values(by=['strike'])
+
+    # Step 10: Calculate the subset volatility
+    subset_volatility1 = get_volatility(near_term_nearest_all, R1, T1, F1, K1)
+    subset_volatility2 = get_volatility(next_term_nearest_all, R2, T2, F2, K2)
+    
+    # Step 11: Caluculate the VIX index value
+    subset_VIX = get_VIX(T1, T2, subset_volatility1, subset_volatility2)
+    subset_VIX_list.append(subset_VIX)
+
+# Step 12: Read the VIX value data and compare
+vix_value_data = pd.read_csv('^VIX_SPOT_20180221.csv')
+vix_value_minute_data = vix_value_data.iloc[1440::4]
+vix_value_minute_data = vix_value_minute_data.append(vix_value_data.iloc[-1])
+vix_value_minute_data['Replicated Value'] = subset_VIX_list
+vix_value_minute_data['Abs Difference'] = abs(vix_value_minute_data['INDEX_VALUE']-vix_value_minute_data['Replicated Value'])
+print('MSE:', mean_squared_error(vix_value_minute_data['INDEX_VALUE'], vix_value_minute_data['Replicated Value']))
+
+# Plotting the error
+vix_value_minute_data['error'] = vix_value_minute_data['INDEX_VALUE'] - vix_value_minute_data['Replicated Value']
+vix_value_minute_data = vix_value_minute_data.reset_index()
+vix_value_minute_data.loc[vix_value_minute_data['error']>0.4]
+x_time = [datetime.datetime.strptime(d,"%H:%M:%S") for d in vix_value_minute_data["TIME_STAMP"]]
+formatter = DateFormatter("%H:%M")
+fig, ax = plt.subplots(figsize=(15,5))
+ax.plot(x_time,vix_value_minute_data['error'])
+ax.set_xticks(x_time)
+plt.xticks(rotation = 50)
+ax.xaxis.set_major_formatter(formatter)
+ax.xaxis.set_major_locator(MinuteLocator(interval=15))
+plt.ylabel('error')
+plt.show()

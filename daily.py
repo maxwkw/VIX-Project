@@ -392,3 +392,14 @@ subset_volatility1 = get_volatility(near_term_nearest_all, R1, T1, F1, K1)
 subset_volatility2 = get_volatility(next_term_nearest_all, R2, T2, F2, K2)
 subset_VIX = get_VIX(T1, T2, subset_volatility1, subset_volatility2)
 print(subset_VIX)
+
+# Plotting the comparison of real VIX value and replicated value
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8,6))
+plt.scatter(range(10,210,10), subset_VIX_list)
+plt.plot(range(10,210,10), subset_VIX_list, label='Replicated Value')
+plt.plot(range(10,210,10), [20.02]*20, label='Real VIX Value')
+plt.xlabel('Number of options')
+plt.ylabel('VIX Value')
+plt.legend(loc='lower right')
+plt.show()
